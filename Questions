@@ -1,0 +1,133 @@
+data <- read.delim("data/output/acs_medicaid.txt")
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, fixest, ggplot2, dplyr, lubridate, stringr, modelsummary, readxl, data.table, gdata, rddensity, rdrobust,rdd, broom)
+
+data <- data %>%
+  filter(!State %in% c("Puerto Rice", "District of Columbia"))
+
+#Question 1
+q1data <- data %>%
+    group_by(year) %>%
+    summarize(direct_rate = ins_direct/adult_pop)
+
+q1 <- ggplot(q1data, aes(x=as.factor(year), y=direct_rate, group = 1)) +
+    geom_line(stat = "summary", fun="mean") +
+    labs(title = "Rate of Direct Enrollments by Year",
+       x = "Year", y = "Direct Enrollment Rate") +
+    theme_bw() +
+    geom_vline(xintercept=2013.5, color="red")
+
+#Question 3
+q3data <- data %>%
+    group_by(year) %>%
+    summarize(medicaid_rate = ins_medicaid/adult_pop)
+
+q3 <- ggplot(q3data, aes(x=as.factor(year), y=medicaid_rate, group = 1)) +
+    geom_line(stat = "summary", fun="mean") +
+    labs(title = "Rate of Medicaid Enrollments by Year",
+       x = "Year", y = "Medicaid Enrollment Rate") +
+    theme_bw() +
+  geom_vline(xintercept=2013.5, color="red")
+
+#Question 4
+q4exp <- data %>%
+    filter(expand_year == 2014) %>%
+    group_by(year) %>%
+    summarize(uninsured_rate = uninsured/adult_pop, 
+    expanded = "Expanded", 
+    avg_rate = mean(uninsured_rate))
+
+q4noexp <- data %>%
+    filter(expand_ever == FALSE) %>%
+    group_by(year) %>%
+    summarize(uninsured_rate = uninsured/adult_pop, 
+    expanded = "Not Expanded",
+    avg_rate = mean(uninsured_rate))
+
+q4data <- rbind(q4noexp, q4exp) %>%
+    arrange(year)
+
+q4 <- ggplot(q4data, aes(x = year, y = avg_rate, color = expanded)) +
+    geom_line() +
+    labs(x = "Year", y = "Uninsured Rate", color = "Expansion Status") +
+  geom_vline(xintercept=2013.5, color="purple")
+
+#Question 5
+q5 <- tibble(
+    Year = c(2012, 2015),
+    Expanded = c("16.8%", "9.41%"),
+    NotExpanded = c("22.4%", "16.4%")
+)
+
+#Question 6
+ins.plot.dat <- data %>% filter(expand_year==2014 | is.na(expand_year), !is.na(expand_ever)) %>%
+  mutate(perc_unins=uninsured/adult_pop) %>%
+  group_by(expand_ever, year) %>% summarize(mean=mean(perc_unins))
+
+q6plot <- ggplot(data=ins.plot.dat, aes(x=year,y=mean,group=expand_ever,linetype=expand_ever)) + 
+  geom_line() + geom_point() + theme_bw() +
+  geom_vline(xintercept=2013.5, color="red") +
+  geom_text(data = ins.plot.dat %>% filter(year == 2016), 
+            aes(label = c("Non-expansion","Expansion"),
+                x = year + 1,
+                y = mean)) +
+  guides(linetype="none") +
+  labs(
+    x="Year",
+    y="Fraction Uninsured",
+    title="Share of Uninsured over Time"
+  )
+
+reg.dat <- data %>% filter(expand_year==2014 | is.na(expand_year), !is.na(expand_ever)) %>%
+  mutate(perc_unins=uninsured/adult_pop,
+         post = (year>=2014), 
+         treat=post*expand_ever,
+         time_to_treat = ifelse(expand_ever==FALSE, 0, year-expand_year),
+         time_to_treat = ifelse(time_to_treat < -3, -3, time_to_treat))
+
+dd.ins.reg <- lm(perc_unins ~ post + expand_ever + treat, data=reg.dat)
+
+q6 <- tibble(Variable = c("Intercept", "Post-2014", "Expansion", "Post*Expansion"), Coefficients = coef(dd.ins.reg), StdError = se(dd.ins.reg))
+#Question 7
+q7reg <- feols(perc_unins ~ treat | State + year, data=reg.dat)
+
+#Question 8
+reg.dat2 <- data %>% filter(!is.na(expand_ever)) %>%
+  mutate(perc_unins=uninsured/adult_pop,
+         post = (year>=2014), 
+         treat=post*expand_ever,
+         time_to_treat = ifelse(expand_ever==FALSE, 0, year-expand_year),
+         time_to_treat = ifelse(time_to_treat < -3, -3, time_to_treat))
+
+q8reg <- feols(perc_unins ~ treat | State + year, data=reg.dat2)
+
+q8 <- tibble(Coefficients = coef(q8reg), StdError = se(q8reg))
+
+#Question 9
+predicted_values <- fitted(q7reg)
+
+q9line <- ggplot(data = reg.dat, aes(x = year, y = predicted_values)) +
+  geom_line(stat = "summary", fun = "mean") +
+  geom_vline(xintercept = 2014, linetype = "dashed", color = "red") +
+  labs(x = "Year", y = "Predicted Uninsurance Rate", title = "Event Study: Effects of Medicaid Expansion") +
+  theme_bw()
+
+q9reg <- feols(perc_unins~i(time_to_treat, expand_ever, ref=-1) | State + year,
+                  cluster=~State,
+                  data=reg.dat)
+
+#Question 10
+predicted_values2 <- fitted(q8reg)
+
+q10line <- ggplot(data = reg.dat2, aes(x = year, y = predicted_values2)) +
+  geom_line(stat="summary", fun="mean") +
+  geom_vline(xintercept = 2014, linetype = "dashed", color = "red") +
+  labs(x = "Year", y = "Predicted Uninsurance Rate", title = "Event Study: Effects of Medicaid Expansion") +
+  theme_bw()
+
+q10reg <- feols(perc_unins~i(time_to_treat, expand_ever, ref=-1) | State + year,
+                  cluster=~State,
+                  data=reg.dat2)
+
+save.image("analysis/Hwk5_workspace.Rdata")

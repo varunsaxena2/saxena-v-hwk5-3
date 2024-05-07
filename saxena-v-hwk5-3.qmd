@@ -1,0 +1,127 @@
+---
+title: "Homework 5"
+author: "Varun Saxena"
+format:
+  pdf:
+    output-file: "saxena-v-hwk5-3"
+    output-ext:  "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
+
+---
+https://github.com/varunsaxena2/saxena-v-hwk5-3
+```{r}
+#| echo: false
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata, here, kableExtra)
+library(knitr)
+library(tidyverse)
+library(modelsummary)
+library(fixest)
+load("Hwk5_workspace.Rdata")
+```
+
+\newpage
+\noindent 1. 
+```{r}
+#| echo: false
+
+q1
+
+```
+
+
+\newpage
+\noindent 2. The repealing of the individual mandate in 2017 likely contributed to the decline in enrollment for health insurance plans. This is because a lack of a mandate to have insurance allows individuals to opt out of purchasing insurance, an option that many people will want to take. This, in combination with other Trump era efforts to repeal the Affordable Care Act, will in turn increase rates of uninsured individuals.
+
+\newpage
+\noindent 3.
+```{r}
+#| echo: false
+
+q3
+
+```
+
+\newpage
+\noindent 4.
+```{r}
+#| echo: false
+
+q4
+
+```
+
+\newpage
+\noindent 5.
+```{r}
+#| echo: false
+
+kable(q5)
+
+```
+This is a table presenting the average percent of uninsured individuals in the years 2012 and 2015, separated by the state's expansion status. The data is presented in a 2x2 DD table.
+\newpage
+\noindent 6.
+```{r}
+#| echo: false
+
+kable(q6)
+
+```
+This table illustrates the effect of Medicare expansion using a standard DD regression estimator with coefficients and standard errors.
+
+\newpage
+\noindent 7.
+```{r}
+#| echo: false
+
+msummary(list("DD"=dd.ins.reg, "TWFE"=q7reg),
+         shape=term + statistic ~ model, 
+         gof_map=NA,
+         coef_omit='Intercept',
+         vcov=~State
+         )
+
+```
+This table presents the effect of Medicare expansion with the results of the standard DD regression estimator with a two-way fixed effects model side-by-side.
+
+\newpage
+\noindent 8.
+```{r}
+#| echo: false
+
+msummary(list("DD"=dd.ins.reg, "TWFE"=q7reg, "All States TWFE"=q8reg),
+         shape=term + statistic ~ model, 
+         gof_map=NA,
+         coef_omit='Intercept',
+         vcov=~State
+         )
+
+```
+This table presents the effect of Medicare expansion with the results of the standard DD regression estimator and two-way fixed effects models for both Medicare expansion states and all states. The results are that when all states are included, the effect of Medicare expansion is dampened with a 1.2% decrease in uninsurance rate for all states, but a 1.8% decrease in uninsurance rate for expansion states.
+
+\newpage
+\noindent 9.
+```{r}
+#| echo: false
+
+iplot(q9reg, 
+      xlab = 'Time to treatment',
+      main = 'Event study')
+
+```
+Event study estimates for 2014 expansion.
+
+\newpage
+\noindent 10.
+```{r}
+#| echo: false
+
+iplot(q10reg, 
+      xlab = 'Time to treatment',
+      main = 'Event study')
+
+```
+Event study estimates for 2014 expansion, including states that expanded after 2014.
